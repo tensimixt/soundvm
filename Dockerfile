@@ -13,6 +13,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the FastAPI app code and config
 COPY main.py config_vocals_mel_band_roformer.yaml ./
+COPY models/ ./models/
+
 
 # Expose port 80 for the FastAPI service
 EXPOSE 80
