@@ -3,7 +3,6 @@
 model:
   # The base model hyperparameters for the Roformer
   # You should keep them consistent with the pretrained checkpoint
-  base_channels: 48
   sample_rate: 44100
   chunk_size: 352512
   nfft: 4096
