@@ -1,0 +1,36 @@
+# Minimal config for Mel-Band Roformer model focusing on vocal separation
+
+model:
+  # The base model hyperparameters for the Roformer
+  # You should keep them consistent with the pretrained checkpoint
+  base_channels: 48
+  sample_rate: 44100
+  chunk_size: 352512
+  nfft: 4096
+  hop_length: 1024
+  num_bands: 7
+  dim_roformer: 256
+  depth_roformer: 6
+  heads_roformer: 4
+  dim_head_roformer: 64
+  attn_dropout: 0.1
+
+inference:
+  # Chunking and overlap for seamless inference
+  chunk_size: 353792   # Usually near model.chunk_size but can vary
+  num_overlap: 4       # Overlap factor for chunk crossfading
+  # (in your code, each chunk steps by chunk_size/num_overlap)
+  
+training:
+  # If the model was trained specifically for vocals + instrumental, keep these
+  instruments:
+    - vocals
+    - instrumental
+  
+  # Optionally specify target_instrument if this was a single-target training
+  # target_instrument: vocals
+  
+  # Any other training parameters you might need 
+  # (some code may reference them for shape or normalization)
+  batch_size: 4
+  num_workers: 2
