@@ -1,35 +1,39 @@
-# Minimal config for Mel-Band Roformer model focusing on vocal separation
-
 model:
-  # The base model hyperparameters for the Roformer
-  # You should keep them consistent with the pretrained checkpoint
+  dim: 384
+  depth: 6
+  stereo: true
+  num_stems: 1
+  time_transformer_depth: 1
+  freq_transformer_depth: 1
+  num_bands: 60
+  dim_head: 64
+  heads: 8
+  attn_dropout: 0
+  ff_dropout: 0
+  flash_attn: True
+  dim_freqs_in: 1025
   sample_rate: 44100
-  chunk_size: 352512
-  nfft: 4096
-  hop_length: 1024
-  num_bands: 7
-  dim_roformer: 256
-  depth_roformer: 6
-  heads_roformer: 4
-  dim_head_roformer: 64
-  attn_dropout: 0.1
+  stft_n_fft: 2048
+  stft_hop_length: 441
+  stft_win_length: 2048
+  stft_normalized: False
+  mask_estimator_depth: 2
+  multi_stft_resolution_loss_weight: 1.0
+  multi_stft_resolutions_window_sizes: !!python/tuple
+    - 4096
+    - 2048
+    - 1024
+    - 512
+    - 256
+  multi_stft_hop_size: 147
+  multi_stft_normalized: False
 
 inference:
-  # Chunking and overlap for seamless inference
-  chunk_size: 353792   # Usually near model.chunk_size but can vary
-  num_overlap: 4       # Overlap factor for chunk crossfading
-  # (in your code, each chunk steps by chunk_size/num_overlap)
-  
+  chunk_size: 352800
+  num_overlap: 2
+
 training:
-  # If the model was trained specifically for vocals + instrumental, keep these
   instruments:
     - vocals
-    - instrumental
-  
-  # Optionally specify target_instrument if this was a single-target training
-  # target_instrument: vocals
-  
-  # Any other training parameters you might need 
-  # (some code may reference them for shape or normalization)
-  batch_size: 4
-  num_workers: 2
+    - other
+  target_instrument: vocals
