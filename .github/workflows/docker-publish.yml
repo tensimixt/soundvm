@@ -2,16 +2,16 @@ name: Build and Push Docker Image
 
 on:
   push:
-    branches: [ main ]
+    branches: [ "main" ]
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Check out code
         uses: actions/checkout@v3
 
-      - name: Set up Docker Buildx (for multi-platform builds if needed)
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
       - name: Log in to Docker Hub
@@ -20,8 +20,26 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build Docker image
-        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/melband-roformer:vocal-separator-latest .
+      - name: Build Docker image (versioned)
+        run: |
+          # Use the first 7 chars of the commit SHA as the version
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          echo "Building Docker image with tag: $SHORT_SHA"
+          
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/melband-roformer:${SHORT_SHA} .
 
-      - name: Push Docker image
-        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/melband-roformer:vocal-separator-latest
+      - name: Push Docker image (versioned)
+        run: |
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          echo "Pushing image tag: $SHORT_SHA"
+          
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/melband-roformer:${SHORT_SHA}
+
+      # Optional: Also tag as 'latest' if you want a rolling tag
+      - name: Tag and push as 'latest'
+        run: |
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+
+          docker tag ${{ secrets.DOCKERHUB_USERNAME }}/melband-roformer:${SHORT_SHA} \
+                     ${{ secrets.DOCKERHUB_USERNAME }}/melband-roformer:latest
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/melband-roformer:latest
