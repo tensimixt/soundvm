@@ -14,6 +14,13 @@ import yaml
 from ml_collections import ConfigDict
 with open("config_vocals_mel_band_roformer.yaml") as f:
     config = ConfigDict(yaml.safe_load(f))
+
+
+# Convert list to tuple if necessary
+if "multi_stft_resolutions_window_sizes" in config.model:
+    config.model["multi_stft_resolutions_window_sizes"] = tuple(
+        config.model["multi_stft_resolutions_window_sizes"]
+    )
     
 # Import model class definition (from Kimberley Jensen's implementation)
 from models.mel_band_roformer import MelBandRoformer  # assume we've included the model code in our project
