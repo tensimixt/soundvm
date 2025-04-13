@@ -22,17 +22,16 @@ from ml_collections import ConfigDict
 with open("config_vocals_mel_band_roformer.yaml", "r") as f:
     config = ConfigDict(yaml.safe_load(f))
 
-# DEBUG: Print config.model for verification
-print("Config model before conversion:", config.model)
+# Convert config.model (ConfigDict) to a plain dictionary
+model_config = dict(config.model)
 
-# Force conversion of multi_stft_resolutions_window_sizes to tuple if present
-if "multi_stft_resolutions_window_sizes" in config.model:
-    value = config.model["multi_stft_resolutions_window_sizes"]
-    print("Before conversion, multi_stft_resolutions_window_sizes:", value, type(value))
-    config.model["multi_stft_resolutions_window_sizes"] = tuple(value)
-    print("After conversion, multi_stft_resolutions_window_sizes:", config.model["multi_stft_resolutions_window_sizes"], type(config.model["multi_stft_resolutions_window_sizes"]))
+# Convert multi_stft_resolutions_window_sizes to a tuple if present
+if "multi_stft_resolutions_window_sizes" in model_config:
+    print("Before conversion:", model_config["multi_stft_resolutions_window_sizes"], type(model_config["multi_stft_resolutions_window_sizes"]))
+    model_config["multi_stft_resolutions_window_sizes"] = tuple(model_config["multi_stft_resolutions_window_sizes"])
+    print("After conversion:", model_config["multi_stft_resolutions_window_sizes"], type(model_config["multi_stft_resolutions_window_sizes"]))
 
-# Import model class definition (ensure your repo includes the proper models folder structure)
+# Import model class definition (ensure the models folder structure is included in the repo)
 from models.mel_band_roformer import MelBandRoformer
 
 # Initialize FastAPI
@@ -55,13 +54,13 @@ def load_model():
             for chunk in resp.iter_content(chunk_size=8192):
                 if chunk:
                     f.write(chunk)
-    # Initialize model with configuration parameters
+    # Initialize model with the plain dictionary configuration
     try:
-        model = MelBandRoformer(**dict(config.model))
+        model = MelBandRoformer(**model_config)
     except Exception as e:
         print("Error during model initialization:", e)
         raise e
-    # Load saved weights into model
+    # Load model state
     state = torch.load(MODEL_PATH, map_location="cpu")
     model.load_state_dict(state)
     model.to(device)
@@ -74,14 +73,14 @@ def load_model():
 async def separate_audio(file: UploadFile = File(...)):
     """
     Separate the uploaded WAV file into vocals and instrumental.
-    Returns a ZIP with 'vocals.wav' and 'instrumental.wav'.
+    Returns a ZIP containing 'vocals.wav' and 'instrumental.wav'.
     """
-    # Read uploaded WAV file into NumPy array
+    # Read the uploaded file into a NumPy array
     data, sr = sf.read(file.file)
     if data.ndim == 1:
-        # If mono, duplicate the channel to make it stereo
+        # Duplicate mono into stereo channels
         data = np.stack([data, data], axis=-1)
-    # Convert audio data into a torch tensor and move to appropriate device
+    # Convert to torch tensor and move to appropriate device
     mixture = torch.tensor(data.T, dtype=torch.float32).to(device)
     
     # Inference parameters from config
@@ -93,7 +92,7 @@ async def separate_audio(file: UploadFile = File(...)):
     if mixture.shape[1] > 2 * border and border > 0:
         mixture = torch.nn.functional.pad(mixture, (border, border), mode='reflect')
     
-    # Determine output tensor shape based on training configuration
+    # Determine output tensor shape
     if config.training.get("target_instrument", None):
         out_shape = (1,) + tuple(mixture.shape)
     else:
@@ -101,7 +100,7 @@ async def separate_audio(file: UploadFile = File(...)):
     result = torch.zeros(out_shape, dtype=torch.float32, device=device)
     counter = torch.zeros(out_shape, dtype=torch.float32, device=device)
     
-    # Process audio in overlapping chunks with model inference
+    # Process the audio in overlapping chunks
     with torch.cuda.amp.autocast():
         with torch.no_grad():
             i = 0
@@ -129,31 +128,28 @@ async def separate_audio(file: UploadFile = File(...)):
                 counter[..., i:i+length] += window[:length]
                 i += step
     
-    # Average the overlapping contributions
+    # Average overlapping regions
     estimated_sources = (result / counter).cpu().numpy()
     if mixture.shape[1] > 2 * border and border > 0:
         estimated_sources = estimated_sources[..., border:-border]
     
-    # Select vocals (assuming vocals is the first stem)
-    if config.training.get("target_instrument", None):
-        vocals_est = estimated_sources[0]
-    else:
-        vocals_est = estimated_sources[0]
+    # Choose the vocals (assume vocals is the first stem)
+    vocals_est = estimated_sources[0]
     if vocals_est.shape[0] == 1:
         vocals_est = vocals_est[0]
     
-    # Compute instrumental by subtracting vocals from original mix
+    # Compute instrumental as original mix minus vocals
     orig = data.T
     instrumental_est = orig - vocals_est
     
-    # Write output WAVs to temporary files
+    # Write output files to temporary WAV files
     tmp_v = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
     tmp_i = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
     sf.write(tmp_v.name, vocals_est.T, sr, subtype="FLOAT")
     sf.write(tmp_i.name, instrumental_est.T, sr, subtype="FLOAT")
     tmp_v.close(); tmp_i.close()
     
-    # Package WAVs into a zip archive
+    # Package into a ZIP archive
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "w") as z:
         z.write(tmp_v.name, arcname="vocals.wav")
