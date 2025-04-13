@@ -1,6 +1,5 @@
 fastapi==0.95.2
 uvicorn[standard]==0.22.0
-torchaudio==2.0.1+cu117       # (optional, if torchaudio needed for any reason)
 soundfile==0.12.1
 numpy==1.24.4
 ml_collections==0.1.1         # For ConfigDict (Google's ml_collections)
