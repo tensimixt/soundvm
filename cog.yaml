@@ -1,24 +1,2 @@
 image: tensimixt/melband-roformer:latest
-
-build:
-  gpu: true
-  python_version: "3.10"
-  system_packages:
-    - "libsndfile1"
-  python_packages:
-    - "torch==2.0.1"
-    - "fastapi==0.95.2"
-    - "soundfile==0.12.1"
-    - "numpy==1.24.4"
-    - "ml_collections==0.1.1"
-    - "PyYAML==6.0"
-    - "tqdm==4.65.0"
-    - "omegaconf==2.2.3"
-    - "einops==0.6.1"
-    - "rotary_embedding_torch==0.3.5"
-    - "segmentation-models-pytorch==0.3.3"
-    - "timm==0.9.2"
-    - "librosa==0.10.0"
-    - "beartype==0.15.0"
-
 predict: "predict.py:Predictor"
