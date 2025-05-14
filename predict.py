@@ -12,22 +12,18 @@ MODEL_PATH = "MelBandRoformer.ckpt"
 class Predictor(BasePredictor):
     def setup(self):
         """Load the model into memory"""
-        # Load config
         with open("config_vocals_mel_band_roformer.yaml", "r") as f:
             config = ConfigDict(yaml.safe_load(f))
         
-        # Convert config to dict
         model_config = dict(config.model)
         if "multi_stft_resolutions_window_sizes" in model_config:
             model_config["multi_stft_resolutions_window_sizes"] = tuple(
                 model_config["multi_stft_resolutions_window_sizes"]
             )
 
-        # Initialize model
         self.model = MelBandRoformer(**model_config)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
-        # Download and load weights
         if not Path(MODEL_PATH).exists():
             torch.hub.download_url_to_file(MODEL_URL, MODEL_PATH)
         
@@ -52,7 +48,7 @@ class Predictor(BasePredictor):
         # Convert to tensor
         mixture = torch.tensor(data.T, dtype=torch.float32).to(self.device)
 
-        # Get inference params
+        # Get inference parameters
         C = self.config.inference.chunk_size
         N = self.config.inference.num_overlap
         step = C // N
@@ -62,12 +58,10 @@ class Predictor(BasePredictor):
         if mixture.shape[1] > 2 * border and border > 0:
             mixture = torch.nn.functional.pad(mixture, (border, border), mode='reflect')
 
-        # Setup output tensors
         out_shape = (1,) + tuple(mixture.shape)
         result = torch.zeros(out_shape, dtype=torch.float32, device=self.device)
         counter = torch.zeros(out_shape, dtype=torch.float32, device=self.device)
 
-        # Process audio
         with torch.cuda.amp.autocast():
             with torch.no_grad():
                 i = 0
@@ -75,51 +69,40 @@ class Predictor(BasePredictor):
                 while i < total_len:
                     part = mixture[:, i:i+C]
                     length = part.shape[-1]
-                    
-                    # Handle the last chunk
                     if length < C:
                         if length > C // 2:
                             part = torch.nn.functional.pad(part, (0, C - length), mode='reflect')
                         else:
                             part = torch.nn.functional.pad(part, (0, C - length), mode='constant', value=0)
                     
-                    # Run inference on the chunk
                     output_chunk = self.model(part.unsqueeze(0))[0]
-                    
-                    # Apply windowing
                     window = torch.ones(C, device=self.device)
                     if fade > 0:
                         fadein = torch.linspace(0, 1, fade, device=self.device)
                         fadeout = torch.linspace(1, 0, fade, device=self.device)
                         window[:fade] = fadein
                         window[-fade:] = fadeout
-                    
-                    # Handle edge cases
                     if i == 0:
                         window[:fade] = 1
                     if i + C >= total_len:
                         window[-fade:] = 1
                     
-                    # Add the chunk's contribution to the result
                     result[..., i:i+length] += output_chunk[..., :length] * window[:length]
                     counter[..., i:i+length] += window[:length]
-                    
-                    # Move to next chunk
                     i += step
 
         # Average overlapping regions
         estimated_sources = (result / counter).cpu().numpy()
-        
-        # Remove padding if necessary
         if mixture.shape[1] > 2 * border and border > 0:
             estimated_sources = estimated_sources[..., border:-border]
 
-        # Generate output file
-        output_path = Path("/tmp/output.wav")
+        # Get vocals
         vocals_est = estimated_sources[0]
         if vocals_est.shape[0] == 1:
             vocals_est = vocals_est[0]
-        
+
+        # Save output
+        output_path = Path("/tmp/output.wav")
         sf.write(str(output_path), vocals_est.T, sr, subtype="FLOAT")
         
         return output_path
