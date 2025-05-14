@@ -16,7 +16,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the entire models folder + other code files
 COPY models/ ./models/
-COPY main.py config_vocals_mel_band_roformer.yaml ./
+COPY main.py config_vocals_mel_band_roformer.yaml predict.py ./
 
 EXPOSE 80
 
