@@ -43,3 +43,16 @@ jobs:
           docker tag ${{ secrets.DOCKERHUB_USERNAME }}/melband-roformer:${SHORT_SHA} \
                      ${{ secrets.DOCKERHUB_USERNAME }}/melband-roformer:latest
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/melband-roformer:latest
+
+      - name: Install Cog
+        run: |
+          sudo curl -o /usr/local/bin/cog -L https://github.com/replicate/cog/releases/latest/download/cog_`uname -s`_`uname -m`
+          sudo chmod +x /usr/local/bin/cog
+
+      - name: Login to Replicate
+        run: |
+          echo ${{ secrets.REPLICATE_TOKEN }} | cog login
+
+      - name: Push to Replicate
+        run: |
+          cog push r8.im/tensimixt/melbandrm
