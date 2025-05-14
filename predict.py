@@ -73,11 +73,48 @@ class Predictor(BasePredictor):
                 i = 0
                 total_len = mixture.shape[1]
                 while i < total_len:
-                    # Process chunks similar to main.py
-                    # [... rest of processing logic ...]
-                    pass
+                    part = mixture[:, i:i+C]
+                    length = part.shape[-1]
+                    
+                    # Handle the last chunk
+                    if length < C:
+                        if length > C // 2:
+                            part = torch.nn.functional.pad(part, (0, C - length), mode='reflect')
+                        else:
+                            part = torch.nn.functional.pad(part, (0, C - length), mode='constant', value=0)
+                    
+                    # Run inference on the chunk
+                    output_chunk = self.model(part.unsqueeze(0))[0]
+                    
+                    # Apply windowing
+                    window = torch.ones(C, device=self.device)
+                    if fade > 0:
+                        fadein = torch.linspace(0, 1, fade, device=self.device)
+                        fadeout = torch.linspace(1, 0, fade, device=self.device)
+                        window[:fade] = fadein
+                        window[-fade:] = fadeout
+                    
+                    # Handle edge cases
+                    if i == 0:
+                        window[:fade] = 1
+                    if i + C >= total_len:
+                        window[-fade:] = 1
+                    
+                    # Add the chunk's contribution to the result
+                    result[..., i:i+length] += output_chunk[..., :length] * window[:length]
+                    counter[..., i:i+length] += window[:length]
+                    
+                    # Move to next chunk
+                    i += step
 
-        # Generate output files
+        # Average overlapping regions
+        estimated_sources = (result / counter).cpu().numpy()
+        
+        # Remove padding if necessary
+        if mixture.shape[1] > 2 * border and border > 0:
+            estimated_sources = estimated_sources[..., border:-border]
+
+        # Generate output file
         output_path = Path("/tmp/output.wav")
         vocals_est = estimated_sources[0]
         if vocals_est.shape[0] == 1:
