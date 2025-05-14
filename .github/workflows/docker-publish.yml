@@ -22,24 +22,19 @@ jobs:
 
       - name: Build Docker image (versioned)
         run: |
-          # Use the first 7 chars of the commit SHA as the version
           SHORT_SHA="${GITHUB_SHA:0:7}"
           echo "Building Docker image with tag: $SHORT_SHA"
-          
           docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/melband-roformer:${SHORT_SHA} .
 
       - name: Push Docker image (versioned)
         run: |
           SHORT_SHA="${GITHUB_SHA:0:7}"
           echo "Pushing image tag: $SHORT_SHA"
-          
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/melband-roformer:${SHORT_SHA}
 
-      # Optional: Also tag as 'latest' if you want a rolling tag
       - name: Tag and push as 'latest'
         run: |
           SHORT_SHA="${GITHUB_SHA:0:7}"
-
           docker tag ${{ secrets.DOCKERHUB_USERNAME }}/melband-roformer:${SHORT_SHA} \
                      ${{ secrets.DOCKERHUB_USERNAME }}/melband-roformer:latest
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/melband-roformer:latest
@@ -49,10 +44,8 @@ jobs:
           sudo curl -o /usr/local/bin/cog -L https://github.com/replicate/cog/releases/latest/download/cog_`uname -s`_`uname -m`
           sudo chmod +x /usr/local/bin/cog
 
-      - name: Login to Replicate
-        run: |
-          echo ${{ secrets.REPLICATE_TOKEN }} | cog login
-
       - name: Push to Replicate
+        env:
+          REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_TOKEN }}
         run: |
           cog push r8.im/tensimixt/melbandrm
