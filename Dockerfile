@@ -16,9 +16,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the entire models folder + other code files
 COPY models/ ./models/
-COPY main.py config_vocals_mel_band_roformer.yaml predict.py ./
+COPY main.py config_vocals_mel_band_roformer.yaml ./
 
 EXPOSE 80
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80", "--workers", "1"]
-
