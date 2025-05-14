@@ -18,7 +18,7 @@ jobs:
           tool-cache: false
           docker-images: false
 
-      - the name: Checkout
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup Cog
